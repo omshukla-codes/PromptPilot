@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="text-center mt-5">
+
+    <h1 class="display-3 fw-bold">
+        Improve Your Prompt Quality
+    </h1>
+
+    <p class="lead mt-4 text-muted">
+        PromptPilot helps contributors submit prompts
+        and reviewers evaluate clarity, specificity,
+        and overall prompt effectiveness.
+    </p>
+
+    <div class="mt-4">
+
+        <a href="/register" class="btn btn-primary btn-lg me-2">
+            Get Started
+        </a>
+
+        <a href="/login" class="btn btn-outline-dark btn-lg">
+            Login
+        </a>
+
+    </div>
+
+</div>
+
+<!-- Features Section -->
+<div class="row mt-5 text-center">
+
+    <div class="col-md-4 mb-4">
+
+        <div class="card shadow-sm p-4 h-100">
+
+            <h4>Submit Prompts</h4>
+
+            <p class="text-muted mt-3">
+                Contributors can submit prompts
+                for structured quality review.
+            </p>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4 mb-4">
+
+        <div class="card shadow-sm p-4 h-100">
+
+            <h4>Review Quality</h4>
+
+            <p class="text-muted mt-3">
+                Reviewers evaluate prompts based on
+                clarity, specificity, and ambiguity.
+            </p>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4 mb-4">
+
+        <div class="card shadow-sm p-4 h-100">
+
+            <h4>Track Progress</h4>
+
+            <p class="text-muted mt-3">
+                Monitor review status and improve
+                prompt effectiveness over time.
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
