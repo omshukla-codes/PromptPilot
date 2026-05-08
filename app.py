@@ -18,38 +18,41 @@ from werkzeug.security import (
 
 app = Flask(__name__)
 
-app.secret_key = 'promptpilotsecret'
+app.secret_key = 'promptpilotsecretkey'
 
-# Database Configuration
+# Database Setup
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///promptpilot.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 
-# User Model
+# =========================
+# Database Models
+# =========================
+
 class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    name = db.Column(db.String(100))
+    name = db.Column(db.String(100), nullable=False)
 
     email = db.Column(
-        db.String(100),
-        unique=True
+        db.String(120),
+        unique=True,
+        nullable=False
     )
 
-    password = db.Column(db.String(300))
+    password = db.Column(db.String(300), nullable=False)
 
 
-# Prompt Model
 class Prompt(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    title = db.Column(db.String(200))
+    title = db.Column(db.String(200), nullable=False)
 
-    prompt_text = db.Column(db.Text)
+    prompt_text = db.Column(db.Text, nullable=False)
 
     status = db.Column(
         db.String(50),
@@ -71,26 +74,44 @@ class Prompt(db.Model):
     user_id = db.Column(db.Integer)
 
 
-# Home Route
+# =========================
+# Helper Function
+# =========================
+
+def user_logged_in():
+
+    return 'user_id' in session
+
+
+# =========================
+# Home Page
+# =========================
+
 @app.route('/')
 def home():
 
     return render_template('home.html')
 
 
-# Register Route
+# =========================
+# Register
+# =========================
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
 
     if request.method == 'POST':
 
-        name = request.form['name']
-        email = request.form['email']
-        password = request.form['password']
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
 
-        if name == '' or email == '' or password == '':
+        if not name or not email or not password:
 
-            flash('All fields are required')
+            flash(
+                'Please fill all fields',
+                'warning'
+            )
 
             return redirect('/register')
 
@@ -100,37 +121,47 @@ def register():
 
         if existing_user:
 
-            flash('Email already exists')
+            flash(
+                'Email already registered',
+                'danger'
+            )
 
             return redirect('/register')
 
-        hashed_password = generate_password_hash(password)
-
-        new_user = User(
-            name=name,
-            email=email,
-            password=hashed_password
+        encrypted_password = generate_password_hash(
+            password
         )
 
-        db.session.add(new_user)
+        user = User(
+            name=name,
+            email=email,
+            password=encrypted_password
+        )
 
+        db.session.add(user)
         db.session.commit()
 
-        flash('Registration successful')
+        flash(
+            'Registration successful. Please login.',
+            'success'
+        )
 
         return redirect('/login')
 
     return render_template('register.html')
 
 
-# Login Route
+# =========================
+# Login
+# =========================
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
 
     if request.method == 'POST':
 
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email')
+        password = request.form.get('password')
 
         user = User.query.filter_by(
             email=email
@@ -142,27 +173,33 @@ def login():
         ):
 
             session['user_id'] = user.id
-
             session['user_name'] = user.name
 
-            flash('Login successful')
+            flash(
+                'Login successful',
+                'success'
+            )
 
             return redirect('/dashboard')
 
-        else:
+        flash(
+            'Invalid email or password',
+            'danger'
+        )
 
-            flash('Invalid email or password')
-
-            return redirect('/login')
+        return redirect('/login')
 
     return render_template('login.html')
 
 
-# Dashboard Route
+# =========================
+# Dashboard
+# =========================
+
 @app.route('/dashboard')
 def dashboard():
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
@@ -188,59 +225,71 @@ def dashboard():
     )
 
 
-# Submit Prompt Route
+# =========================
+# Submit Prompt
+# =========================
+
 @app.route('/submit-prompt', methods=['GET', 'POST'])
 def submit_prompt():
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
     if request.method == 'POST':
 
-        title = request.form['title']
+        title = request.form.get('title')
+        prompt_text = request.form.get('prompt_text')
 
-        prompt_text = request.form['prompt_text']
+        if not title or not prompt_text:
 
-        if title == '' or prompt_text == '':
-
-            flash('All fields are required')
+            flash(
+                'All fields are required',
+                'warning'
+            )
 
             return redirect('/submit-prompt')
 
         if len(prompt_text) < 20:
 
-            flash('Prompt should be at least 20 characters')
+            flash(
+                'Prompt should contain at least 20 characters',
+                'warning'
+            )
 
             return redirect('/submit-prompt')
 
-        new_prompt = Prompt(
+        prompt = Prompt(
             title=title,
             prompt_text=prompt_text,
             user_id=session['user_id']
         )
 
-        db.session.add(new_prompt)
-
+        db.session.add(prompt)
         db.session.commit()
 
-        flash('Prompt submitted successfully')
+        flash(
+            'Prompt submitted successfully',
+            'success'
+        )
 
         return redirect('/my-prompts')
 
     return render_template('submit_prompt.html')
 
 
-# My Prompts Route
+# =========================
+# My Prompts
+# =========================
+
 @app.route('/my-prompts')
 def my_prompts():
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
     search = request.args.get('search')
-
     status = request.args.get('status')
 
     prompts = Prompt.query.filter_by(
@@ -269,62 +318,93 @@ def my_prompts():
     )
 
 
-# Review Route
+# =========================
+# Review Prompt
+# =========================
+
 @app.route('/review/<int:id>')
 def review_prompt(id):
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
-    prompt = Prompt.query.get(id)
+    prompt = Prompt.query.filter_by(
+        id=id,
+        user_id=session['user_id']
+    ).first()
 
-    if prompt:
+    if not prompt:
 
-        prompt.status = 'Reviewed'
-
-        prompt.score = 8
-
-        prompt.feedback = (
-            'Good clarity and structure'
+        flash(
+            'Prompt not found',
+            'danger'
         )
 
-        db.session.commit()
+        return redirect('/my-prompts')
 
-        flash('Prompt reviewed successfully')
+    prompt.status = 'Reviewed'
+    prompt.score = 8
+    prompt.feedback = 'Good prompt structure and clarity'
+
+    db.session.commit()
+
+    flash(
+        'Prompt reviewed successfully',
+        'success'
+    )
 
     return redirect('/my-prompts')
 
 
-# Edit Route
+# =========================
+# Edit Prompt
+# =========================
+
 @app.route('/edit-prompt/<int:id>', methods=['GET', 'POST'])
 def edit_prompt(id):
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
-    prompt = Prompt.query.get(id)
+    prompt = Prompt.query.filter_by(
+        id=id,
+        user_id=session['user_id']
+    ).first()
+
+    if not prompt:
+
+        flash(
+            'Prompt not found',
+            'danger'
+        )
+
+        return redirect('/my-prompts')
 
     if request.method == 'POST':
 
-        title = request.form['title']
+        title = request.form.get('title')
+        prompt_text = request.form.get('prompt_text')
 
-        prompt_text = request.form['prompt_text']
+        if not title or not prompt_text:
 
-        if title == '' or prompt_text == '':
-
-            flash('All fields are required')
+            flash(
+                'All fields are required',
+                'warning'
+            )
 
             return redirect(f'/edit-prompt/{id}')
 
         prompt.title = title
-
         prompt.prompt_text = prompt_text
 
         db.session.commit()
 
-        flash('Prompt updated successfully')
+        flash(
+            'Prompt updated successfully',
+            'success'
+        )
 
         return redirect('/my-prompts')
 
@@ -334,50 +414,78 @@ def edit_prompt(id):
     )
 
 
-# Delete Route
+# =========================
+# Delete Prompt
+# =========================
+
 @app.route('/delete-prompt/<int:id>')
 def delete_prompt(id):
 
-    if 'user_id' not in session:
+    if not user_logged_in():
 
         return redirect('/login')
 
-    prompt = Prompt.query.get(id)
+    prompt = Prompt.query.filter_by(
+        id=id,
+        user_id=session['user_id']
+    ).first()
 
-    if prompt:
+    if not prompt:
 
-        db.session.delete(prompt)
+        flash(
+            'Prompt not found',
+            'danger'
+        )
 
-        db.session.commit()
+        return redirect('/my-prompts')
 
-        flash('Prompt deleted successfully')
+    db.session.delete(prompt)
+    db.session.commit()
+
+    flash(
+        'Prompt deleted successfully',
+        'success'
+    )
 
     return redirect('/my-prompts')
 
 
-# Logout Route
+# =========================
+# Logout
+# =========================
+
 @app.route('/logout')
 def logout():
 
     session.clear()
 
-    flash('Logged out successfully')
+    flash(
+        'Logged out successfully',
+        'success'
+    )
 
     return redirect('/login')
 
 
-# 404 Error Route
+# =========================
+# 404 Page
+# =========================
+
 @app.errorhandler(404)
-def not_found(e):
+def page_not_found(error):
 
     return render_template('404.html'), 404
 
 
+# =========================
 # Run App
+# =========================
+
+with app.app_context():
+
+    db.create_all()
+
+
 if __name__ == '__main__':
-
-    with app.app_context():
-
-        db.create_all()
 
     app.run(debug=True)
